@@ -11,10 +11,10 @@ from xcore.models import *
 from transformers.utils.hub import cached_file as hf_cached_file
 
 class xCoRe:
-    def __init__(self, hf_name_or_path="sapienzanlp/xcore-litbank", device="cuda"):
+    def __init__(self, hf_name_or_path="sapienzanlp/xcore-litbank", device="cuda", weights_only=True):
         self.device = device
         path = self.__get_model_path__(hf_name_or_path)
-        self.model = CrossPLModule.load_from_checkpoint(path, _recursive_=False, map_location=self.device)
+        self.model = CrossPLModule.load_from_checkpoint(path, _recursive_=False, map_location=self.device, weights_only=weights_only)
         # self.model = CrossPLModule.load_from_checkpoint(hf_name_or_path, _recursive_=False, map_location=device)
         self.model = self.model.eval()
         self.model = self.model.model

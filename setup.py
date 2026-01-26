@@ -14,7 +14,7 @@ setup(
         "transformers>=4.34",
         "spacy>=3.7.2",
         "jsonlines==4.0.0",
-        "sentencepiece==0.2.0",
+        "sentencepiece==0.2.1",
         "protobuf==3.20",
         "nltk==3.8.1",
         "scipy>=1.10",
