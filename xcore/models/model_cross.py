@@ -1750,7 +1750,7 @@ class xCoRe_system(torch.nn.Module):
                     preds["full_coreferences"] = [[d[(m[0], m[1])] for m in cluster] for cluster in fullcoreferences]
             else:
                 preds["full_coreferences"] = []
-        if self.cluster_representation == "soft-mc":
+        elif self.cluster_representation == "soft-mc":
             if len(mention_t_idxs) != 0:
                 start_hidden_states = torch.cat(mention_t_hs, dim=-2)
                 start_hidden_states = start_hidden_states.unsqueeze(0)
@@ -1777,7 +1777,7 @@ class xCoRe_system(torch.nn.Module):
                     preds["full_coreferences"] = [[d[(m[0], m[1])] for m in cluster] for cluster in fullcoreferences]
             else:
                 preds["full_coreferences"] = []
-        if len(coref_hs) > 0 or len(start_hs) > 0:
+        elif len(coref_hs) > 0 or len(start_hs) > 0:
             if self.cluster_representation != "s2e":
                 coref_hidden_states = torch.stack(coref_hs).squeeze(1)
                 coref_hidden_states = coref_hidden_states.unsqueeze(0)
