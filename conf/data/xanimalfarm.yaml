@@ -4,27 +4,28 @@ datamodule:
     train:
       _target_: xcore.data.datasets.xcoreDataset
       name: 'train'
-      path: 'data/cross/ecb/train_s.jsonl'
-      type: "cross"
+      type: "book"
+      path: 'data/LitBank/train-splitted.english.jsonlines'
       batch_size: "${data.datamodule.batch_sizes.train}"
-      processed_dataset_path: 'data/cache_${data.datamodule.dataset.train.max_doc_len}/${model.module.model.huggingface_model_name}/ontonotes/train'
+      processed_dataset_path: 'data/cache_${data.datamodule.dataset.train.max_doc_len}/${model.module.model.huggingface_model_name}/animalfarm/train'
       tokenizer: "${model.module.model.huggingface_model_name}"
-      max_doc_len: 1870
+      max_doc_len: 1770
     val:
       _target_: xcore.data.datasets.xcoreDataset
       name: 'val'
-      path: 'data/cross/ecb/dev.jsonl'
-      type: "cross"
+      type: "book"
+      path: 'data/long/animalfarm/dev.jsonlines'
       batch_size: "${data.datamodule.batch_sizes.train}"
-      processed_dataset_path: 'data/cache_${data.datamodule.dataset.train.max_doc_len}/${model.module.model.huggingface_model_name}/ontonotes/val'
+      processed_dataset_path: 'data/cache_${data.datamodule.dataset.train.max_doc_len}/${model.module.model.huggingface_model_name}/animalfarm/val'
       tokenizer: "${model.module.model.huggingface_model_name}"
     test:
       _target_: xcore.data.datasets.xcoreDataset
       name: 'test'
-      path: 'data/cross/ecb/test.jsonl'
-      type: "cross"
+      type: "book"
+      split: 2
+      path: 'data/long/animalfarm/test.jsonlines'
       batch_size: "${data.datamodule.batch_sizes.train}"
-      processed_dataset_path: 'data/cache_${data.datamodule.dataset.train.max_doc_len}/${model.module.model.huggingface_model_name}/ontonotes/test'
+      processed_dataset_path: 'data/cache_${data.datamodule.dataset.train.max_doc_len}/${model.module.model.huggingface_model_name}/animalfarm/test'
       tokenizer: "${model.module.model.huggingface_model_name}"
 
   batch_sizes:
