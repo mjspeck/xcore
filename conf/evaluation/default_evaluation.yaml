@@ -2,4 +2,4 @@
 # Override on the command line: evaluation.checkpoint=/path/to/checkpoint.ckpt
 checkpoint: ???
 singletons: False
-device: "cuda" #cpu
+device: "cpu" #cuda
