@@ -14,7 +14,18 @@ class xCoRe:
     def __init__(self, hf_name_or_path="sapienzanlp/xcore-litbank", device="cuda"):
         self.device = device
         path = self.__get_model_path__(hf_name_or_path)
-        self.model = CrossPLModule.load_from_checkpoint(path, _recursive_=False, map_location=self.device)
+        # PyTorch >=2.6 changed weights_only default to True, which blocks PL checkpoints
+        # that contain non-tensor globals (AttributeDict, DictConfig, etc.). Patch torch.load
+        # locally so the checkpoint loads with weights_only=False for this trusted file.
+        _orig_load = torch.load
+        def _load_unsafe(*args, **kwargs):
+            kwargs["weights_only"] = False
+            return _orig_load(*args, **kwargs)
+        try:
+            torch.load = _load_unsafe
+            self.model = CrossPLModule.load_from_checkpoint(path, _recursive_=False, map_location=self.device)
+        finally:
+            torch.load = _orig_load
         # self.model = CrossPLModule.load_from_checkpoint(hf_name_or_path, _recursive_=False, map_location=device)
         self.model = self.model.eval()
         self.model = self.model.model
@@ -190,7 +201,29 @@ class xCoRe:
             new_tokens.append(token)
 
         encoded_text = self.tokenizer(new_tokens, add_special_tokens=True, is_split_into_words=True)
-        
+
+        # transformers >= 5 changed DeBERTa tokenizer behaviour: add_special_tokens no
+        # longer inserts CLS/SEP.  The model was trained *with* CLS/SEP so we add them
+        # back manually when the tokenizer omits them.
+        if (
+            self.tokenizer.cls_token_id is not None
+            and self.tokenizer.sep_token_id is not None
+            and len(encoded_text["input_ids"]) > 0
+            and encoded_text["input_ids"][0] != self.tokenizer.cls_token_id
+        ):
+            _cls = self.tokenizer.cls_token_id
+            _sep = self.tokenizer.sep_token_id
+            _patched_word_ids = [None] + list(encoded_text.word_ids()) + [None]
+            encoded_text["input_ids"] = [_cls] + list(encoded_text["input_ids"]) + [_sep]
+            encoded_text["attention_mask"] = [1] + list(encoded_text["attention_mask"]) + [1]
+            _orig_word_to_tokens = encoded_text.word_to_tokens
+            def _shifted_word_to_tokens(word_index, batch_index=None):
+                result = _orig_word_to_tokens(word_index, batch_index)
+                if result is None:
+                    return None
+                return type(result)(result.start + 1, result.end + 1)
+            encoded_text.word_ids = lambda batch_index=None: _patched_word_ids
+            encoded_text.word_to_tokens = _shifted_word_to_tokens
 
         eos_indices = [
             encoded_text.word_to_tokens(token_to_new_token_map[eos - 1]).start
