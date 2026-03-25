@@ -105,7 +105,7 @@ class xCoRe:
     # takes length of sequence (int) and eos_indices ([])
     # returns len x len zeros matrix with 1 in pos (start, all possible ends)
     def eos_mask(self, input_ids_len, eos_indices):
-        mask = np.zeros((input_ids_len, input_ids_len))
+        mask = np.zeros((input_ids_len, input_ids_len), dtype=np.float32)
         prec = 0
         for eos_idx in eos_indices:
             for i in range(prec, eos_idx + 1):
@@ -179,7 +179,7 @@ class xCoRe:
         return result
 
     def create_mention_matrix(self, input_ids_len, mentions):
-        matrix = np.zeros((input_ids_len, input_ids_len))
+        matrix = np.zeros((input_ids_len, input_ids_len), dtype=np.float32)
         for start_bpe_idx, end_bpe_idx in mentions:
             matrix[start_bpe_idx][end_bpe_idx] = 1
         return matrix
