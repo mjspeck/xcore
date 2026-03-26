@@ -145,7 +145,7 @@ class xcoreDataset(Dataset):
     # takes length of sequence (int) and eos_indices ([])
     # returns len x len zeros matrix with 1 in pos (start, all possible ends)
     def eos_mask(self, input_ids_len, eos_indices):
-        mask = np.zeros((input_ids_len, input_ids_len))
+        mask = np.zeros((input_ids_len, input_ids_len), dtype=np.float32)
         prec = 0
         for eos_idx in eos_indices:
             for i in range(prec, eos_idx + 1):
@@ -159,7 +159,7 @@ class xcoreDataset(Dataset):
     # takes length of sequence (int) and coreferences ([[()]])
     # returns len x len zeros matrix with 1 in pos (start, end)
     def create_mention_matrix(self, input_ids_len, coreferences):
-        matrix = np.zeros((input_ids_len, input_ids_len))
+        matrix = np.zeros((input_ids_len, input_ids_len), dtype=np.float32)
         for cluster in coreferences:
             for start_bpe_idx, end_bpe_idx in cluster:
                 if start_bpe_idx < input_ids_len and end_bpe_idx < input_ids_len:
@@ -169,7 +169,7 @@ class xcoreDataset(Dataset):
     # takes length of sequence (int) and coreferences ([[()]])
     # returns len zeros matrix with 1 in start position
     def create_start_matrix(self, input_ids_len, coreferences):
-        matrix = np.zeros((input_ids_len))
+        matrix = np.zeros((input_ids_len), dtype=np.float32)
         for cluster in coreferences:
             for start_bpe_idx, end_bpe_idx in cluster:
                 matrix[start_bpe_idx] = 1

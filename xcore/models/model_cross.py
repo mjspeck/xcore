@@ -773,7 +773,7 @@ class xCoRe_system(torch.nn.Module):
             pronoun_id = get_pronoun_id(span)
             doc_spans.append((span - STOPWORDS, pronoun_id))
 
-        categories_labels = np.zeros((max_k, max_k)) - 1
+        categories_labels = np.zeros((max_k, max_k), dtype=np.float32) - 1
         for i in range(max_k):
             for j in list(range(max_k))[:i]:
                 categories_labels[i, j] = get_category_id(doc_spans[i], doc_spans[j])

@@ -231,32 +231,46 @@ class CrossPLModule(pl.LightningModule):
     def test_step(self, batch: dict, batch_idx: int) -> Any:
         output = self.model(
             stage="test",
-            input_ids=batch["input_ids"],
-            attention_mask=batch["attention_mask"],
-            eos_mask=batch["eos_mask"],
-            tokens=batch["tokens"],
-            subtoken_map=batch["subtoken_map"],
-            new_token_map=batch["new_token_map"],
+            input_ids=batch["index_input_ids"],
+            attention_mask=batch["index_attention_mask"],
+            eos_mask=batch["index_eos_mask"],
             singletons=batch["singletons"],
+            temp=batch["temp"],
+            tokens=batch["t_tokens"],
+            subtoken_map=batch["t_subtoken_map"],
+            new_token_map=batch["t_new_token_map"],
         )
         self.log_dict({"test/" + k: v for k, v in output["loss_dict"].items()})
-        output["pred_dict"]["clusters"] = original_token_offsets(
-            clusters=output["pred_dict"]["clusters"],
+
+        output["pred_dict"]["full_coreferences_t"] = original_token_offsets3(
+            clusters=[x for xx in output["pred_dict"]["clusters_t"] for x in xx],
             subtoken_map=batch["subtoken_map"][0],
             new_token_map=batch["new_token_map"][0],
         )
-        self.test_step_predictions.append(output["pred_dict"])
-        self.test_step_gold.append(
-            {
-                "gold_starts": batch["gold_starts"].cpu(),
-                "gold_mentions": batch["gold_mentions"].cpu(),
-                "gold_clusters": original_token_offsets(
-                    clusters=unpad_gold_clusters(batch["gold_clusters"].cpu()),
-                    subtoken_map=batch["subtoken_map"][0],
-                    new_token_map=batch["new_token_map"][0],
-                ),
-            }
+
+        output["pred_dict"]["full_coreferences"] = original_token_offsets3(
+            clusters=output["pred_dict"]["full_coreferences"],
+            subtoken_map=batch["subtoken_map"][0],
+            new_token_map=batch["new_token_map"][0],
         )
+
+        self.test_step_predictions.append(output["pred_dict"])
+
+        gold = {
+            "index_gold_clusters": [
+                [tuple([(i[0], i[1]) for i in cluster]) for cluster in temppppppp] for temppppppp in batch["tempppp"]
+            ],
+            "gold_clusters": original_token_offsets(
+                clusters=unpad_gold_clusters(batch["gold_clusters"].cpu()),
+                subtoken_map=batch["subtoken_map"][0],
+                new_token_map=batch["new_token_map"][0],
+            ),
+        }
+        if "gold_starts" in batch:
+            gold["gold_starts"] = batch["gold_starts"].cpu()
+            gold["gold_mentions"] = batch["gold_mentions"].cpu()
+
+        self.test_step_gold.append(gold)
 
     def on_test_epoch_end(self):
         self.log_dict({"test/" + k: v for k, v in self.evaluate(self.test_step_predictions, self.test_step_gold).items()})
