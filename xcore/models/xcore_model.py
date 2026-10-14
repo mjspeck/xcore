@@ -30,6 +30,7 @@ class xCoRe:
         # self.model = CrossPLModule.load_from_checkpoint(hf_name_or_path, _recursive_=False, map_location=device)
         self.model = self.model.eval()
         self.model = self.model.model
+        self.model = self.model.float()
         self.tokenizer = self.__get_model_tokenizer__()
 
     def __get_model_path__(self, hf_name_or_path):
