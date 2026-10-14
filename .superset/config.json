@@ -1,4 +1,4 @@
 {
   "setup": ["./.superset/setup.sh"],
-  "teardown": ["./.superset/teardown.sh"]
+  "teardown": ["./.superset/link-data.sh --remove"]
 }
