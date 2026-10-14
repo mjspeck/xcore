@@ -36,11 +36,11 @@ if [ "$ROOT_PATH" = "$(pwd -P)" ]; then
   exit 0
 fi
 
-# A data symlink belongs to the user; writing through it could touch a
-# directory other workspaces share, so leave it alone in both modes.
-if [ -L data ]; then
-  echo "Warning: data is a symlink to $(readlink data); leaving it as is." >&2
-  echo "using existing data symlink"
+# A data symlink or file belongs to the user; writing through a symlink could
+# touch a directory other workspaces share, so leave either alone in both modes.
+if [ -L data ] || { [ -e data ] && [ ! -d data ]; }; then
+  echo "Warning: data is not a plain directory; leaving it as is." >&2
+  echo "using existing data"
   exit 0
 fi
 
@@ -59,18 +59,24 @@ if [ "${1:-}" = "--remove" ]; then
   exit 0
 fi
 
-# Drop links to root datasets that no longer exist; keep the user's own links.
-for link in data/*; do
-  if is_root_link "$link" && [ ! -e "$link" ]; then
-    rm "$link"
-  fi
-done
-
 if [ ! -d "$ROOT_DATA" ]; then
-  echo "Warning: no datasets at $ROOT_DATA; run ./download_datasets.sh in $ROOT_PATH." >&2
+  # Keep existing links: the root's data/ may be on an unmounted drive, and
+  # the links work again once it is back.
+  echo "Warning: no datasets at $ROOT_DATA (missing or unmounted); run ./download_datasets.sh in $ROOT_PATH." >&2
   echo "no datasets linked"
   exit 0
 fi
+
+# Drop links to root datasets that no longer exist; keep the user's own links.
+for link in data/*; do
+  if [ -L "$link" ] && [ ! -e "$link" ]; then
+    if is_root_link "$link"; then
+      rm "$link"
+    else
+      echo "Warning: $link -> $(readlink "$link") is dangling; fix or remove it." >&2
+    fi
+  fi
+done
 
 mkdir -p data
 for src in "$ROOT_DATA"/*; do
@@ -79,11 +85,6 @@ for src in "$ROOT_DATA"/*; do
   # -L as well as -e: a dangling link of the user's still occupies the name.
   if [ -e "$src" ] && [ ! -e "data/$name" ] && [ ! -L "data/$name" ]; then
     ln -s "$src" "data/$name"
-  fi
-done
-for link in data/*; do
-  if [ -L "$link" ] && [ ! -e "$link" ]; then
-    echo "Warning: $link -> $(readlink "$link") is dangling; fix or remove it." >&2
   fi
 done
 echo "datasets linked from $ROOT_DATA"

@@ -19,18 +19,21 @@ fi
 venv_version() {
   .venv/bin/python -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || true
 }
-if [ "$(venv_version)" != "$PYTHON_VERSION" ]; then
-  # Replace a missing, broken, or wrong-version .venv.
+if [ ! -x .venv/bin/python ] || [ -z "$(venv_version)" ]; then
+  # Replace a missing or broken .venv (e.g. its interpreter was uninstalled).
   rm -rf .venv
   uv venv --python "$PYTHON_VERSION" .venv
+elif [ "$(venv_version)" != "$PYTHON_VERSION" ]; then
+  echo "Error: .venv uses Python $(venv_version), but setup needs $PYTHON_VERSION. Remove .venv and re-run." >&2
+  exit 1
 fi
 export VIRTUAL_ENV="$PWD/.venv"
 
 # --- python deps -------------------------------------------------------------
 # torch is not listed in requirements.txt; the default PyPI wheel is CPU/MPS on
 # macOS and CUDA-enabled on Linux. constraints.txt keeps the spaCy stack
-# importable and transformers<5; overrides.txt settles the sentencepiece pin
-# conflict between requirements.txt and setup.py (issue #5).
+# importable; overrides.txt settles the sentencepiece pin conflict between
+# requirements.txt and setup.py (issue #5).
 uv pip install -c .superset/constraints.txt --overrides .superset/overrides.txt \
   torch -r requirements.txt -e .
 

@@ -7,6 +7,8 @@ SCRIPT="$(cd "$(dirname "$0")/.." && pwd)/link-data.sh"
 # Canonical path, since link-data.sh resolves symlinks such as /var -> /private/var.
 TMP="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf "$TMP"' EXIT
+# Keep git from finding a repository above $TMP and redirecting the script.
+export GIT_CEILING_DIRECTORIES="$TMP"
 FAILED=0
 
 check() {
@@ -110,12 +112,20 @@ fresh
 check "unknown argument rejected" bash -c '! "$0" --rm 2>/dev/null' "$SCRIPT"
 check "nothing linked on bad argument" test ! -e data
 
-# Deleting the root data/ cleans up the links to it.
+# A missing root data/ (e.g. unmounted drive) keeps existing links.
 fresh
 "$SCRIPT" >/dev/null
-rm -rf "$TMP/root/data"
+mv "$TMP/root/data" "$TMP/root/data.unmounted"
 "$SCRIPT" >/dev/null 2>&1
-check "links to deleted root data/ removed" test -z "$(ls -A data)"
+check "links kept while root data/ is missing" test -L data/LitBank
+mv "$TMP/root/data.unmounted" "$TMP/root/data"
+check "links work again once root data/ returns" test -d data/LitBank
+
+# A regular file named data does not abort setup.
+fresh
+touch data
+check "data file tolerated" "$SCRIPT"
+check "data file kept" test -f data
 
 # No root data: warns and reports, without failing.
 fresh
