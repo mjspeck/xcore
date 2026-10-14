@@ -45,7 +45,9 @@ class xCoRe_system(torch.nn.Module):
         super().__init__()
         # document transformer encoder
         self.encoder_hf_model_name = kwargs["huggingface_model_name"]
-        self.encoder = AutoModel.from_pretrained(self.encoder_hf_model_name)
+        # transformers >= 5 loads in the checkpoint's stored dtype (fp16 for deberta-v3) by default;
+        # xCoRe was trained and is evaluated with an fp32 encoder.
+        self.encoder = AutoModel.from_pretrained(self.encoder_hf_model_name, dtype=torch.float32)
         self.encoder_config = AutoConfig.from_pretrained(self.encoder_hf_model_name)
         self.encoder.resize_token_embeddings(self.encoder.embeddings.word_embeddings.num_embeddings + 3)
         self.device = self.encoder.device
