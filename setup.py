@@ -12,7 +12,7 @@ setup(
         "pandas>=1.3.5",
         "hydra-core>=1.2",
         "hydra_colorlog==1.2",
-        "transformers>=4.34,<5",
+        "transformers>=4.56,<6",
         "spacy>=3.7.2",
         "jsonlines==4.0.0",
         "sentencepiece==0.2.1",
