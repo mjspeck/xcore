@@ -1,0 +1,4 @@
+# en-core-web-sm 3.7.1 pins spacy<3.8, whose thinc 8.2.x is built against
+# numpy 1.x but does not cap it; numpy 2 fails at import with
+# "numpy.dtype size changed".
+numpy<2
