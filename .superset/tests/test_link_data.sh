@@ -4,7 +4,8 @@
 set -euo pipefail
 
 SCRIPT="$(cd "$(dirname "$0")/.." && pwd)/link-data.sh"
-TMP="$(mktemp -d)"
+# Canonical path, since link-data.sh resolves symlinks such as /var -> /private/var.
+TMP="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf "$TMP"' EXIT
 FAILED=0
 
@@ -35,11 +36,11 @@ check "cache_* not linked" test ! -e data/cache_1770
 
 # Re-run: repairs missing and dangling links, leaves local files alone.
 rm data/SciCo
-ln -s /nonexistent/ghost data/ghost
+ln -s "$TMP/root/data/Gone" data/Gone
 mkdir data/cache_local
 "$SCRIPT" >/dev/null
 check "missing link restored" test -L data/SciCo
-check "dangling link removed" test ! -L data/ghost
+check "link to deleted root dataset removed" test ! -L data/Gone
 check "local cache kept" test -d data/cache_local
 
 # Migration: the older whole-directory symlink becomes per-dataset links.
@@ -48,6 +49,43 @@ ln -s "$TMP/root/data" data
 "$SCRIPT" >/dev/null
 check "old data symlink replaced" test -d data -a ! -L data
 check "root cache untouched by migration" test -d "$TMP/root/data/cache_1770"
+
+# Old layout written with a trailing-slash root path is still migrated.
+fresh
+ln -s "$TMP/root/data" data
+SUPERSET_ROOT_PATH="$TMP/root/" "$SCRIPT" >/dev/null
+check "trailing-slash old layout migrated" test -d data -a ! -L data
+
+# A data symlink the user made elsewhere is never written through.
+fresh
+mkdir -p "$TMP/elsewhere"
+ln -s "$TMP/elsewhere" data
+"$SCRIPT" >/dev/null 2>&1
+check "foreign data symlink kept" test -L data
+check "nothing linked into foreign dir" test -z "$(ls -A "$TMP/elsewhere")"
+"$SCRIPT" --remove >/dev/null
+check "foreign data symlink kept on remove" test -L data
+rm -rf "$TMP/elsewhere"
+
+# A dangling data symlink does not abort setup.
+fresh
+ln -s /nonexistent/data data
+check "dangling data symlink tolerated" "$SCRIPT"
+
+# The user's own dangling links survive a re-run.
+fresh
+mkdir data
+ln -s /Volumes/unmounted/OntoNotes data/OntoNotes
+"$SCRIPT" >/dev/null
+check "user's dangling link kept" test -L data/OntoNotes
+
+# Running from a subdirectory still targets the workspace root.
+fresh
+git init -q .
+mkdir sub
+(cd sub && "$SCRIPT" >/dev/null)
+check "links created at workspace root" test -L data/LitBank
+check "no data/ in subdirectory" test ! -e sub/data
 
 # Remove: only links pointing at the root's data/<name> are deleted.
 fresh

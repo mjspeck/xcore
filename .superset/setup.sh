@@ -13,8 +13,9 @@ fi
 
 # --- virtualenv --------------------------------------------------------------
 if [ ! -x .venv/bin/python ]; then
-  # --clear replaces a broken .venv (e.g. its interpreter was uninstalled).
-  uv venv --clear --python "$PYTHON_VERSION" .venv
+  # Replace a broken .venv (e.g. its interpreter was uninstalled).
+  rm -rf .venv
+  uv venv --python "$PYTHON_VERSION" .venv
 fi
 export VIRTUAL_ENV="$PWD/.venv"
 

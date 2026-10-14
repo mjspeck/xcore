@@ -11,28 +11,40 @@
 # Prints a one-line status on stdout; warnings go to stderr.
 set -euo pipefail
 
+# Work from the workspace root no matter where the script is called from.
+cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
 ROOT_PATH="${SUPERSET_ROOT_PATH:-}"
 if [ -z "$ROOT_PATH" ]; then
-  # Outside Superset, the main checkout owns the shared .git directory.
-  common_dir="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
-  if [ -n "$common_dir" ]; then
-    ROOT_PATH="$(dirname "$common_dir")"
-  fi
+  # Outside Superset, the main checkout is the first entry git lists.
+  ROOT_PATH="$(git worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p')"
 fi
+if [ -z "$ROOT_PATH" ] || [ ! -d "$ROOT_PATH" ]; then
+  echo "using local data/ (no root checkout found)"
+  exit 0
+fi
+RAW_ROOT_DATA="${ROOT_PATH%/}/data"
+ROOT_PATH="$(cd "$ROOT_PATH" && pwd -P)"
 ROOT_DATA="$ROOT_PATH/data"
 
-if [ -z "$ROOT_PATH" ] || [ "$(cd "$ROOT_PATH" && pwd -P)" = "$(pwd -P)" ]; then
+if [ "$ROOT_PATH" = "$(pwd -P)" ]; then
   echo "using local data/ (root checkout)"
   exit 0
 fi
 
+# True when data is the older whole-directory link to the root's data/.
+is_old_layout() {
+  [ -L data ] && { [ "$(readlink data)" = "$ROOT_DATA" ] || [ "$(readlink data)" = "$RAW_ROOT_DATA" ]; }
+}
+
 # Removes only links this script created: data itself (older whole-directory
 # layout) or data/<name> pointing at the root's data/<name>.
 remove_links() {
+  if is_old_layout; then
+    rm data
+    return
+  fi
   if [ -L data ]; then
-    if [ "$(readlink data)" = "$ROOT_DATA" ]; then
-      rm data
-    fi
     return
   fi
   for link in data/*; do
@@ -54,13 +66,19 @@ if [ ! -d "$ROOT_DATA" ]; then
   exit 0
 fi
 
-# Migrate the older layout, where data was one symlink to the root's data/.
-if [ -L data ] && [ "$(readlink data)" = "$ROOT_DATA" ]; then
+# Migrate the older layout. Any other data symlink belongs to the user, and
+# writing through it could touch a directory other workspaces share.
+if is_old_layout; then
   rm data
+elif [ -L data ]; then
+  echo "Warning: data is a symlink to $(readlink data); leaving it as is." >&2
+  echo "using existing data symlink"
+  exit 0
 fi
 mkdir -p data
+# Drop links to root datasets that no longer exist; keep the user's own links.
 for link in data/*; do
-  if [ -L "$link" ] && [ ! -e "$link" ]; then
+  if [ -L "$link" ] && [ ! -e "$link" ] && [ "$(readlink "$link")" = "$ROOT_DATA/$(basename "$link")" ]; then
     rm "$link"
   fi
 done
