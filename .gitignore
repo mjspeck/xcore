@@ -1,7 +1,5 @@
 # custom
 data/*
-# Superset workspaces symlink data to the root checkout's copy
-/data
 experiments/*
 modelss/*
 .vscode

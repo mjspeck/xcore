@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Superset workspace setup: builds a uv-managed .venv and links shared datasets.
-# Safe to re-run; every step skips work that is already done.
+# Safe to re-run: the venv is reused, and uv reinstalls only what changed.
 set -euo pipefail
 
 PYTHON_VERSION="${XCORE_PYTHON_VERSION:-3.12}"
@@ -14,7 +14,8 @@ fi
 
 # --- virtualenv --------------------------------------------------------------
 if [ ! -x .venv/bin/python ]; then
-  uv venv --python "$PYTHON_VERSION" .venv
+  # --clear replaces a broken .venv (e.g. its interpreter was uninstalled).
+  uv venv --clear --python "$PYTHON_VERSION" .venv
 fi
 export VIRTUAL_ENV="$PWD/.venv"
 
@@ -29,15 +30,34 @@ uv pip install -c "$CONSTRAINTS" -r requirements.txt
 uv pip install -c "$CONSTRAINTS" -e .
 
 # --- datasets ----------------------------------------------------------------
-# conf/data/*.yaml read from ./data, which is gitignored. Share the root
-# checkout's copy instead of downloading ~200MB per workspace.
-if [ -e data ] || [ -L data ]; then
-  echo "data/ already present; leaving it as is."
-elif [ -n "$ROOT_PATH" ] && [ "$ROOT_PATH" != "$PWD" ] && [ -d "$ROOT_PATH/data" ]; then
-  ln -s "$ROOT_PATH/data" data
-  echo "Linked data -> $ROOT_PATH/data"
+# conf/data/*.yaml read from ./data, which is gitignored. Link each dataset from
+# the root checkout instead of downloading ~200MB per workspace, but keep
+# data/ a real directory so processed caches (data/cache_*) stay per workspace:
+# the cache key ignores code changes, so a shared cache would leak between
+# branches.
+DATA_STATUS="no datasets linked; run ./download_datasets.sh to fetch them"
+if [ -n "$ROOT_PATH" ] && [ "$ROOT_PATH" != "$PWD" ] && [ -d "$ROOT_PATH/data" ]; then
+  if [ -L data ]; then
+    rm data
+  fi
+  mkdir -p data
+  for link in data/*; do
+    if [ -L "$link" ] && [ ! -e "$link" ]; then
+      rm "$link"
+    fi
+  done
+  for src in "$ROOT_PATH"/data/*; do
+    name="$(basename "$src")"
+    case "$name" in cache_*) continue ;; esac
+    if [ -e "$src" ] && [ ! -e "data/$name" ]; then
+      ln -s "$src" "data/$name"
+    fi
+  done
+  DATA_STATUS="datasets linked from $ROOT_PATH/data"
+elif [ -d data ]; then
+  DATA_STATUS="using existing data/"
 else
-  echo "Warning: no datasets found at \$SUPERSET_ROOT_PATH/data; run ./download_datasets.sh to fetch them." >&2
+  echo "Warning: no datasets found at \$SUPERSET_ROOT_PATH/data." >&2
 fi
 
 # --- smoke check -------------------------------------------------------------
@@ -47,4 +67,4 @@ spacy.load("en_core_web_sm")
 print("torch", torch.__version__, "| pytorch_lightning", pl.__version__, "| xcore OK")
 PY
 
-echo "Workspace ready. Activate with: source .venv/bin/activate"
+echo "Workspace ready ($DATA_STATUS). Activate with: source .venv/bin/activate"
