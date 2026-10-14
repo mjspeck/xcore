@@ -1,0 +1,3 @@
+# requirements.txt pins sentencepiece==0.2.0 but setup.py pins 0.2.1 (issue #5);
+# override so torch, requirements.txt and the package install in one resolve.
+sentencepiece==0.2.1
