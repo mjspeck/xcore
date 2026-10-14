@@ -19,12 +19,13 @@ fi
 venv_version() {
   .venv/bin/python -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || true
 }
-if [ ! -x .venv/bin/python ] || [ -z "$(venv_version)" ]; then
+VENV_VERSION="$(venv_version)"
+if [ -z "$VENV_VERSION" ]; then
   # Replace a missing or broken .venv (e.g. its interpreter was uninstalled).
   rm -rf .venv
   uv venv --python "$PYTHON_VERSION" .venv
-elif [ "$(venv_version)" != "$PYTHON_VERSION" ]; then
-  echo "Error: .venv uses Python $(venv_version), but setup needs $PYTHON_VERSION. Remove .venv and re-run." >&2
+elif [ "$VENV_VERSION" != "$PYTHON_VERSION" ]; then
+  echo "Error: .venv uses Python $VENV_VERSION, but setup needs $PYTHON_VERSION. Remove .venv and re-run." >&2
   exit 1
 fi
 export VIRTUAL_ENV="$PWD/.venv"

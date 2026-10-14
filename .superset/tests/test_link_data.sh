@@ -83,6 +83,14 @@ mkdir sub
 check "links created at workspace root" test -L data/LitBank
 check "no data/ in subdirectory" test ! -e sub/data
 
+# Without SUPERSET_ROOT_PATH, the main checkout comes from git worktree list.
+fresh
+rm -rf "$TMP/ws"
+(cd "$TMP/root" && git init -q . && git commit -q --allow-empty -m init && git worktree add -q --detach "$TMP/ws")
+cd "$TMP/ws"
+SUPERSET_ROOT_PATH= "$SCRIPT" >/dev/null
+check "root found via git worktree list" test "$(readlink data/LitBank)" = "$TMP/root/data/LitBank"
+
 # Remove: only links pointing at the root's data/<name> are deleted.
 fresh
 "$SCRIPT" >/dev/null
