@@ -11,6 +11,11 @@
 # Prints a one-line status on stdout; warnings go to stderr.
 set -euo pipefail
 
+case "${1:-}" in
+  "" | --remove) ;;
+  *) echo "Usage: $(basename "$0") [--remove]" >&2; exit 2 ;;
+esac
+
 # Work from the workspace root no matter where the script is called from.
 cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
@@ -54,6 +59,13 @@ if [ "${1:-}" = "--remove" ]; then
   exit 0
 fi
 
+# Drop links to root datasets that no longer exist; keep the user's own links.
+for link in data/*; do
+  if is_root_link "$link" && [ ! -e "$link" ]; then
+    rm "$link"
+  fi
+done
+
 if [ ! -d "$ROOT_DATA" ]; then
   echo "Warning: no datasets at $ROOT_DATA; run ./download_datasets.sh in $ROOT_PATH." >&2
   echo "no datasets linked"
@@ -61,18 +73,17 @@ if [ ! -d "$ROOT_DATA" ]; then
 fi
 
 mkdir -p data
-# Drop links to root datasets that no longer exist; keep the user's own links.
-for link in data/*; do
-  if is_root_link "$link" && [ ! -e "$link" ]; then
-    rm "$link"
-  fi
-done
 for src in "$ROOT_DATA"/*; do
   name="$(basename "$src")"
   case "$name" in cache_*) continue ;; esac
   # -L as well as -e: a dangling link of the user's still occupies the name.
   if [ -e "$src" ] && [ ! -e "data/$name" ] && [ ! -L "data/$name" ]; then
     ln -s "$src" "data/$name"
+  fi
+done
+for link in data/*; do
+  if [ -L "$link" ] && [ ! -e "$link" ]; then
+    echo "Warning: $link -> $(readlink "$link") is dangling; fix or remove it." >&2
   fi
 done
 echo "datasets linked from $ROOT_DATA"

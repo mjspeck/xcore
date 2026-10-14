@@ -96,9 +96,26 @@ check "root datasets intact" test -d "$TMP/root/data/LitBank" -a -d "$TMP/root/d
 # Root checkout: never links or removes anything.
 fresh
 cd "$TMP/root"
-ln -s "$TMP/root/data/LitBank" data/Alias
+mkdir -p "$TMP/storage/LitBank"
+rm -rf data/LitBank
+ln -s "$TMP/storage/LitBank" data/LitBank
+mv data/SciCo "$TMP/storage/SciCo"
+ln -s "$TMP/root/data/SciCo" data/SciCo
 "$SCRIPT" --remove >/dev/null
-check "root's own links untouched" test -L data/Alias
+check "root's own links untouched" test -L data/LitBank -a -L data/SciCo
+check "root reports itself" test "$("$SCRIPT")" = "using local data/ (root checkout)"
+
+# Unknown arguments fail instead of falling through to link mode.
+fresh
+check "unknown argument rejected" bash -c '! "$0" --rm 2>/dev/null' "$SCRIPT"
+check "nothing linked on bad argument" test ! -e data
+
+# Deleting the root data/ cleans up the links to it.
+fresh
+"$SCRIPT" >/dev/null
+rm -rf "$TMP/root/data"
+"$SCRIPT" >/dev/null 2>&1
+check "links to deleted root data/ removed" test -z "$(ls -A data)"
 
 # No root data: warns and reports, without failing.
 fresh

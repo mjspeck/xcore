@@ -16,8 +16,11 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 # --- virtualenv --------------------------------------------------------------
-if [ ! -x .venv/bin/python ]; then
-  # Replace a broken .venv (e.g. its interpreter was uninstalled).
+venv_version() {
+  .venv/bin/python -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || true
+}
+if [ "$(venv_version)" != "$PYTHON_VERSION" ]; then
+  # Replace a missing, broken, or wrong-version .venv.
   rm -rf .venv
   uv venv --python "$PYTHON_VERSION" .venv
 fi
@@ -25,13 +28,11 @@ export VIRTUAL_ENV="$PWD/.venv"
 
 # --- python deps -------------------------------------------------------------
 # torch is not listed in requirements.txt; the default PyPI wheel is CPU/MPS on
-# macOS and CUDA-enabled on Linux. Install the package last so setup.py's
-# sentencepiece==0.2.1 pin wins over requirements.txt's 0.2.0 (issue #5).
-# .superset/constraints.txt keeps the spaCy stack importable and transformers<5.
-CONSTRAINTS=".superset/constraints.txt"
-uv pip install -c "$CONSTRAINTS" torch
-uv pip install -c "$CONSTRAINTS" -r requirements.txt
-uv pip install -c "$CONSTRAINTS" -e .
+# macOS and CUDA-enabled on Linux. constraints.txt keeps the spaCy stack
+# importable and transformers<5; overrides.txt settles the sentencepiece pin
+# conflict between requirements.txt and setup.py (issue #5).
+uv pip install -c .superset/constraints.txt --overrides .superset/overrides.txt \
+  torch -r requirements.txt -e .
 
 # --- datasets ----------------------------------------------------------------
 DATA_STATUS="$(./.superset/link-data.sh)"
