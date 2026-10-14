@@ -2,3 +2,6 @@
 # numpy 1.x but does not cap it; numpy 2 fails at import with
 # "numpy.dtype size changed".
 numpy<2
+# setup.py caps transformers<5; requirements.txt does not (issue #5), so cap it
+# here to keep the first resolve from installing 5.x.
+transformers<5

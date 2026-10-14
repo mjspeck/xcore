@@ -3,7 +3,11 @@
 # Safe to re-run: the venv is reused and dataset links are repaired in place.
 set -euo pipefail
 
-PYTHON_VERSION="${XCORE_PYTHON_VERSION:-3.12}"
+# Run from the workspace root no matter where the script is called from.
+cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+# 3.12 is the newest Python with numpy<2 wheels (see constraints.txt).
+PYTHON_VERSION="3.12"
 
 # --- sanity checks -----------------------------------------------------------
 if ! command -v uv >/dev/null 2>&1; then
@@ -21,9 +25,9 @@ export VIRTUAL_ENV="$PWD/.venv"
 
 # --- python deps -------------------------------------------------------------
 # torch is not listed in requirements.txt; the default PyPI wheel is CPU/MPS on
-# macOS and CUDA-enabled on Linux. Install the package last so setup.py's pins
-# (transformers<5, sentencepiece==0.2.1) win over requirements.txt.
-# .superset/constraints.txt keeps the spaCy stack importable.
+# macOS and CUDA-enabled on Linux. Install the package last so setup.py's
+# sentencepiece==0.2.1 pin wins over requirements.txt's 0.2.0 (issue #5).
+# .superset/constraints.txt keeps the spaCy stack importable and transformers<5.
 CONSTRAINTS=".superset/constraints.txt"
 uv pip install -c "$CONSTRAINTS" torch
 uv pip install -c "$CONSTRAINTS" -r requirements.txt

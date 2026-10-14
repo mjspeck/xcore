@@ -43,19 +43,6 @@ check "missing link restored" test -L data/SciCo
 check "link to deleted root dataset removed" test ! -L data/Gone
 check "local cache kept" test -d data/cache_local
 
-# Migration: the older whole-directory symlink becomes per-dataset links.
-fresh
-ln -s "$TMP/root/data" data
-"$SCRIPT" >/dev/null
-check "old data symlink replaced" test -d data -a ! -L data
-check "root cache untouched by migration" test -d "$TMP/root/data/cache_1770"
-
-# Old layout written with a trailing-slash root path is still migrated.
-fresh
-ln -s "$TMP/root/data" data
-SUPERSET_ROOT_PATH="$TMP/root/" "$SCRIPT" >/dev/null
-check "trailing-slash old layout migrated" test -d data -a ! -L data
-
 # A data symlink the user made elsewhere is never written through.
 fresh
 mkdir -p "$TMP/elsewhere"
@@ -79,6 +66,13 @@ ln -s /Volumes/unmounted/OntoNotes data/OntoNotes
 "$SCRIPT" >/dev/null
 check "user's dangling link kept" test -L data/OntoNotes
 
+# A user's dangling link that shares a root dataset's name does not abort.
+fresh
+mkdir data
+ln -s /Volumes/unmounted/LitBank data/LitBank
+check "dangling name collision tolerated" "$SCRIPT"
+check "user's colliding link kept" test "$(readlink data/LitBank)" = /Volumes/unmounted/LitBank
+
 # Running from a subdirectory still targets the workspace root.
 fresh
 git init -q .
@@ -98,13 +92,6 @@ check "root links removed" test ! -e data/LitBank -a ! -e data/SciCo
 check "user's own link kept" test -L data/Extra
 check "local cache kept on remove" test -d data/cache_local
 check "root datasets intact" test -d "$TMP/root/data/LitBank" -a -d "$TMP/root/data/SciCo"
-
-# Remove with the older layout deletes only the symlink.
-fresh
-ln -s "$TMP/root/data" data
-"$SCRIPT" --remove >/dev/null
-check "old data symlink removed" test ! -e data -a ! -L data
-check "root data intact after old-layout remove" test -d "$TMP/root/data/LitBank"
 
 # Root checkout: never links or removes anything.
 fresh

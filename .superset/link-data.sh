@@ -23,7 +23,6 @@ if [ -z "$ROOT_PATH" ] || [ ! -d "$ROOT_PATH" ]; then
   echo "using local data/ (no root checkout found)"
   exit 0
 fi
-RAW_ROOT_DATA="${ROOT_PATH%/}/data"
 ROOT_PATH="$(cd "$ROOT_PATH" && pwd -P)"
 ROOT_DATA="$ROOT_PATH/data"
 
@@ -32,30 +31,25 @@ if [ "$ROOT_PATH" = "$(pwd -P)" ]; then
   exit 0
 fi
 
-# True when data is the older whole-directory link to the root's data/.
-is_old_layout() {
-  [ -L data ] && { [ "$(readlink data)" = "$ROOT_DATA" ] || [ "$(readlink data)" = "$RAW_ROOT_DATA" ]; }
-}
+# A data symlink belongs to the user; writing through it could touch a
+# directory other workspaces share, so leave it alone in both modes.
+if [ -L data ]; then
+  echo "Warning: data is a symlink to $(readlink data); leaving it as is." >&2
+  echo "using existing data symlink"
+  exit 0
+fi
 
-# Removes only links this script created: data itself (older whole-directory
-# layout) or data/<name> pointing at the root's data/<name>.
-remove_links() {
-  if is_old_layout; then
-    rm data
-    return
-  fi
-  if [ -L data ]; then
-    return
-  fi
-  for link in data/*; do
-    if [ -L "$link" ] && [ "$(readlink "$link")" = "$ROOT_DATA/$(basename "$link")" ]; then
-      rm "$link"
-    fi
-  done
+# True when $1 is a link this script created: data/<name> -> root's data/<name>.
+is_root_link() {
+  [ -L "$1" ] && [ "$(readlink "$1")" = "$ROOT_DATA/$(basename "$1")" ]
 }
 
 if [ "${1:-}" = "--remove" ]; then
-  remove_links
+  for link in data/*; do
+    if is_root_link "$link"; then
+      rm "$link"
+    fi
+  done
   echo "removed dataset links"
   exit 0
 fi
@@ -66,26 +60,18 @@ if [ ! -d "$ROOT_DATA" ]; then
   exit 0
 fi
 
-# Migrate the older layout. Any other data symlink belongs to the user, and
-# writing through it could touch a directory other workspaces share.
-if is_old_layout; then
-  rm data
-elif [ -L data ]; then
-  echo "Warning: data is a symlink to $(readlink data); leaving it as is." >&2
-  echo "using existing data symlink"
-  exit 0
-fi
 mkdir -p data
 # Drop links to root datasets that no longer exist; keep the user's own links.
 for link in data/*; do
-  if [ -L "$link" ] && [ ! -e "$link" ] && [ "$(readlink "$link")" = "$ROOT_DATA/$(basename "$link")" ]; then
+  if is_root_link "$link" && [ ! -e "$link" ]; then
     rm "$link"
   fi
 done
 for src in "$ROOT_DATA"/*; do
   name="$(basename "$src")"
   case "$name" in cache_*) continue ;; esac
-  if [ -e "$src" ] && [ ! -e "data/$name" ]; then
+  # -L as well as -e: a dangling link of the user's still occupies the name.
+  if [ -e "$src" ] && [ ! -e "data/$name" ] && [ ! -L "data/$name" ]; then
     ln -s "$src" "data/$name"
   fi
 done
